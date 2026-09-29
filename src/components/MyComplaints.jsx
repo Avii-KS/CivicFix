@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useAuth } from '../context/AuthContext';
 import { API_BASE, API_ORIGIN } from '../services/api';
+import { fetchMyComplaints } from '../utils/myComplaintsLogic';
 import './MyComplaints.css';
 
 const formatDate = (value) => {
@@ -27,34 +28,16 @@ const MyComplaints = () => {
     setError('');
 
     try {
-      const headers = { Authorization: `Bearer ${token}` };
+      const data = await fetchMyComplaints(API_BASE, token);
 
-      const [submittedRes, joinedRes] = await Promise.all([
-        fetch(`${API_BASE}/complaints/user`, { headers }),
-        fetch(`${API_BASE}/complaints/joined`, { headers }),
-      ]);
-
-      const submittedData = await submittedRes.json();
-      const joinedData = await joinedRes.json();
-
-      if (!submittedRes.ok) {
-        throw new Error(
-          submittedData.error?.message || 'Failed to fetch your reports'
-        );
-      }
-
-      if (!joinedRes.ok) {
-        throw new Error(
-          joinedData.error?.message || 'Failed to fetch joined reports'
-        );
-      }
-
-      setSubmitted(submittedData.data || []);
-      setJoined(joinedData.data || []);
+      setSubmitted(data.submitted);
+      setJoined(data.joined);
       setLoading(false);
     } catch (err) {
       console.error('MyComplaints fetch error:', err);
-      setError(err.message || 'Failed to load your complaints. Please try again.');
+      setError(
+        err.message || 'Failed to load your complaints. Please try again.'
+      );
       setLoading(false);
     }
   };
@@ -83,6 +66,11 @@ const MyComplaints = () => {
 
   const list = activeTab === 'submitted' ? submitted : joined;
 
+  const showInitialLoadError =
+    Boolean(error) &&
+    submitted.length === 0 &&
+    joined.length === 0;
+
   return (
     <section className="section">
       <div className="container my-complaints">
@@ -106,7 +94,9 @@ const MyComplaints = () => {
           </button>
         </div>
 
-        {error && <div className="error-banner">{error}</div>}
+        {error && !showInitialLoadError && (
+          <div className="error-banner">{error}</div>
+        )}
 
         {activeTab === 'joined' && (
           <div className="joined-info-banner">
@@ -117,13 +107,17 @@ const MyComplaints = () => {
 
         {loading ? (
           <div style={{ color: 'var(--color-text-muted)', padding: '2rem 0' }}>Loading...</div>
+        ) : showInitialLoadError ? (
+          <div className="error-banner">
+            {error}
+          </div>
         ) : list.length === 0 ? (
           <div className="empty-state">
             <div className="empty-icon">{activeTab === 'submitted' ? '📋' : '🤝'}</div>
             <p>
               {activeTab === 'submitted'
-                ? 'You haven\'t submitted any reports yet.'
-                : 'You haven\'t joined any existing reports yet.\nWhen you report an issue, we\'ll show similar nearby issues you can join.'}
+                ? "You haven't submitted any reports yet."
+                : "You haven't joined any existing reports yet.\nWhen you report an issue, we'll show similar nearby issues you can join."}
             </p>
           </div>
         ) : (
